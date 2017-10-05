@@ -330,17 +330,50 @@
 
     // Add Video if link exists
     if (event.videoLink) {
-      modal.find('.event-video').html(
-        '<video width="360" height="200" controls="controls">' +
-        '<source src="' +
-        event.videoLink +
-        '" type="video/mp4"/>' +
-        '</video>'
-      );
-      modal.on('hide.bs.modal', function(event) {
-        var v = modal.find("video").get(0);
-        v.pause();
-      })
+      if (event.videoLink.indexOf("https://www.youtube.com") !== -1) {
+        // we parse the Youtube URL to get the videoId
+        // URL parsing without using 'new URL()' wouhou :-\
+        var parser = document.createElement('a');
+        parser.href = event.videoLink;
+        var param = parser.search
+        .substring(1) // we remove the '?'
+        .split('&') // we separate each parameter
+        .map(function(r) {return r.split('=')}) // we split each parameter into its key & value
+        .find(function(kv) { return kv[0] === 'v'}); // we want only the param with key 'v'. I hope youtube URL don't change :-[
+        if (param) {
+          var videoId = param[1];
+          modal.find('.event-video').html(
+            '<iframe id="youtube_iframe" width="100%" height="315" src="' +
+            'https://www.youtube.com/embed/' + videoId +
+            '?enablejsapi=1' + // without this param the code bellow to close the video doesn't work
+            '" frameborder="0" allowfullscreen></iframe>'
+          );
+          modal.on('hide.bs.modal', function(event) {
+            var iframe = modal.find("iframe").get(0);
+            if (iframe && iframe.contentWindow) {
+              iframe.contentWindow.postMessage(JSON.stringify({
+                "event": "command",
+                "func": "stopVideo",
+                "args": [],
+                "id": "youtube_iframe"
+                }), "*"
+              );
+            }
+          })
+        }
+      } else {
+        modal.find('.event-video').html(
+          '<video width="360" height="200" controls="controls">' +
+          '<source src="' +
+          event.videoLink +
+          '" type="video/mp4"/>' +
+          '</video>'
+        );
+        modal.on('hide.bs.modal', function(event) {
+          var v = modal.find("video").get(0);
+          v.pause();
+        })
+      }
     } else {
       modal.find('.event-video').text('');
       modal.unbind('hide.bs.modal');
